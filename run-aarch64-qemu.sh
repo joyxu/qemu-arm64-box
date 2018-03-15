@@ -2,6 +2,9 @@
 
 KERNEL=./Image
 INITRD=./rootfs.cpio
+BIOS=false
+UBUNTU_BIOS_IMG="https://cloud-images.ubuntu.com/releases/16.04/release-20160516.1/ubuntu-16.04-server-cloudimg-amd64-uefi1.img"
+UBUNTU_IMG_PATH="./test/ubuntu-cloudimg-arm64-uefi1.img"
 
 prepare_host_network()
 {
@@ -30,29 +33,54 @@ run_qemu()
 	"%u"' /dev/urandom`)) $((`hexdump -n 1 -e '/2 "%u"' /dev/urandom`)))
 	echo "MAC_ADDRESS=$MAC_ADDRESS"
 
-	sudo qemu-system-aarch64 \
-		-machine virt \
-		-cpu cortex-a57 \
-		-smp 8 \
-		-nographic \
-		-m 8196 \
-		-kernel $KERNEL \
-		-rtc base=localtime \
-		-initrd ${INITRD} \
-		-append 'console=ttyAMA0 rw earlycon=pl011,0x9000000 \
-		ip=192.168.0.3::192.168.0.2:255.255.255.0:: \
-		eth0:on:192.168.0.2:8.8.8.8' \
-		-netdev type=tap,id=unet,ifname=tap0,vlan=0,script=no \
-		-device virtio-net-device,netdev=unet,mac=$MAC_ADDRESS \
-		-nographic
+	if [ -e $BIOS ]; then
+		echo "booting with $BIOS"
+		if [ ! -e $UBUNTU_IMG_PATH ]; then
+			echo "downloading ubuntu cloud image..."
+			mkdir -p test
+			wget -c $UBUNTU_BIOS_IMG -O $UBUNTU_IMG_PATH
+		fi
+
+		sudo qemu-system-aarch64 \
+			-machine virt \
+			-cpu cortex-a57 \
+			-smp 2 \
+			-m 4096 \
+			-bios $BIOS \
+			-rtc base=localtime \
+			-device virtio-blk-device,drive=image1 \
+			-drive if=none,id=image1,file=$UBUNTU_IMG_PATH \
+			-netdev type=tap,id=unet,ifname=tap0,script=no \
+			-device virtio-net-device,netdev=unet,mac=$MAC_ADDRESS \
+			-nographic
+	else
+		sudo qemu-system-aarch64 \
+			-machine virt \
+			-cpu cortex-a57 \
+			-smp 2 \
+			-m 4096 \
+			-kernel $KERNEL \
+			-rtc base=localtime \
+			-initrd ${INITRD} \
+			-append 'console=ttyAMA0 rw earlycon=pl011,0x9000000 \
+			ip=192.168.0.3::192.168.0.2:255.255.255.0:: \
+			eth0:on:192.168.0.2:8.8.8.8' \
+			-netdev type=tap,id=unet,ifname=tap0,script=no \
+			-device virtio-net-device,netdev=unet,mac=$MAC_ADDRESS \
+			-nographic
+	fi
 }
 
 if [ $1 ]; then
-	KERNEL=$1
+	BIOS=$1
 fi
 
 if [ $2 ]; then
-	INITRD=$2
+	KERNEL=$2
+fi
+
+if [ $3 ]; then
+	INITRD=$3
 fi
 
 prepare_host_network
