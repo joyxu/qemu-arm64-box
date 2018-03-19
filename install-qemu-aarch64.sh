@@ -4,6 +4,9 @@ sudo apt-get build-dep qemu
 #sudo apt-get install -y libtool automake autoconf pkg-config
 #sudo apt-get install -y git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev
 
+#add tun/tap support
+sudo apt-get install uml-utilities bridge-utils
+
 # install QEMU from source
 if [ ! -e qemu.git ]
 then
