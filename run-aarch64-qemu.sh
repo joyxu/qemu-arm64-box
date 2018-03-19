@@ -5,6 +5,7 @@ INITRD=./rootfs.cpio
 BIOS=false
 UBUNTU_BIOS_IMG="https://cloud-images.ubuntu.com/releases/16.04/release-20160516.1/ubuntu-16.04-server-cloudimg-amd64-uefi1.img"
 UBUNTU_IMG_PATH="./test/ubuntu-cloudimg-arm64-uefi1.img"
+#please change the tap0 ip address according your network
 
 prepare_host_network()
 {
@@ -12,7 +13,7 @@ prepare_host_network()
 		echo "tap is already configured."
 	else
 		sudo tunctl -t tap0
-		sudo ifconfig tap0 192.168.0.2 netmask 255.255.255.0 up
+		sudo ifconfig tap0 192.168.2.2 netmask 255.255.255.0 up
 		sudo bash -c 'echo 1 > /proc/sys/net/ipv4/ip_forward'
 
 		# Create forwarding rules, where
@@ -20,9 +21,9 @@ prepare_host_network()
 		# ETH0 - net connected interface
 		ETH0=$(ip addr | grep 'state UP' | cut -f2 -d':' | xargs)
 		iptables -A FORWARD -i tap0 -o $ETH0 -j ACCEPT
+		iptables -t nat -A POSTROUTING -o $ETH0 -j MASQUERADE
 		iptables -A FORWARD -i $ETH0 -o tap0 -m state \
 			--state ESTABLISHED,RELATED -j ACCEPT
-		iptables -t nat -A POSTROUTING -o $ETH0 -j MASQUERADE
 	fi
 }
 
@@ -63,8 +64,8 @@ run_qemu()
 			-rtc base=localtime \
 			-initrd ${INITRD} \
 			-append 'console=ttyAMA0 rw earlycon=pl011,0x9000000 \
-			ip=192.168.0.3::192.168.0.2:255.255.255.0:: \
-			eth0:on:192.168.0.2:8.8.8.8' \
+			ip=192.168.2.3::192.168.2.2:255.255.255.0:: \
+			eth0:on:192.168.2.2:8.8.8.8' \
 			-netdev type=tap,id=unet,ifname=tap0,script=no \
 			-device virtio-net-device,netdev=unet,mac=$MAC_ADDRESS \
 			-nographic
