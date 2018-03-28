@@ -1,6 +1,7 @@
 /*
  * KVM API Sample.
  * author: Xu He Jie xuhj@cn.ibm.com
+ * author: Wei Xu <xuwei04@gmail.com>
  */
 #include <stdio.h>
 #include <memory.h>
@@ -10,6 +11,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stddef.h>
 
 #define KVM_DEVICE "/dev/kvm"
 #define RAM_SIZE 512000000
@@ -39,44 +41,87 @@ struct vcpu {
     void *(*vcpu_thread_func)(void *);
 };
 
-void kvm_reset_vcpu (struct vcpu *vcpu) {
-	if (ioctl(vcpu->vcpu_fd, KVM_GET_SREGS, &(vcpu->sregs)) < 0) {
-		perror("can not get sregs\n");
-		exit(1);
-	}
+#define die_perror printf
 
-	vcpu->sregs.cs.selector = CODE_START;
-	vcpu->sregs.cs.base = CODE_START * 16;
-	vcpu->sregs.ss.selector = CODE_START;
-	vcpu->sregs.ss.base = CODE_START * 16;
-	vcpu->sregs.ds.selector = CODE_START;
-	vcpu->sregs.ds.base = CODE_START *16;
-	vcpu->sregs.es.selector = CODE_START;
-	vcpu->sregs.es.base = CODE_START * 16;
-	vcpu->sregs.fs.selector = CODE_START;
-	vcpu->sregs.fs.base = CODE_START * 16;
-	vcpu->sregs.gs.selector = CODE_START;
+typedef unsigned long long u64;
 
-	if (ioctl(vcpu->vcpu_fd, KVM_SET_SREGS, &vcpu->sregs) < 0) {
-		perror("can not set sregs");
-		exit(1);
-	}
+/*  If you need to interpret the index values, here is the key: */
+#define KVM_REG_ARM_COPROC_MASK		0x000000000FFF0000
+#define KVM_REG_ARM_COPROC_SHIFT	16
 
-	vcpu->regs.rflags = 0x0000000000000002ULL;
-	vcpu->regs.rip = 0;
-	vcpu->regs.rsp = 0xffffffff;
-	vcpu->regs.rbp= 0;
+#define KVM_REG_ARM_CORE		(0x0010 << KVM_REG_ARM_COPROC_SHIFT)
+#define KVM_REG_ARM_CORE_REG(name)	(offsetof(struct kvm_regs, name) / sizeof(__u32))
 
-	if (ioctl(vcpu->vcpu_fd, KVM_SET_REGS, &(vcpu->regs)) < 0) {
-		perror("KVM SET REGS\n");
-		exit(1);
+#define ARM64_CORE_REG(x)	(KVM_REG_ARM64 | KVM_REG_SIZE_U64 | KVM_REG_ARM_CORE | KVM_REG_ARM_CORE_REG(x))
+
+static void reset_vcpu_aarch64(struct vcpu *vcpu)
+{
+	struct kvm_one_reg reg;
+	u64 data;
+
+	reg.addr = (u64)&data;
+
+	/*  pstate = all interrupts
+	 *  masked */
+	data	= PSR_D_BIT | PSR_A_BIT | PSR_I_BIT | PSR_F_BIT | PSR_MODE_EL1h;
+	reg.id	= ARM64_CORE_REG(regs.pstate);
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_ONE_REG, &reg) < 0)
+		die_perror("KVM_SET_ONE_REG failed (spsr[EL1])");
+
+	/*  x1...x3
+	 *  = 0
+	 *  */
+	data = 0;
+	reg.id = ARM64_CORE_REG(regs.regs[1]);
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_ONE_REG, &reg) < 0)
+		die_perror("KVM_SET_ONE_REG failed (x1)");
+
+	reg.id	= ARM64_CORE_REG(regs.regs[2]);
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_ONE_REG, &reg) < 0)
+		die_perror("KVM_SET_ONE_REG failed (x2)");
+
+	reg.id	= ARM64_CORE_REG(regs.regs[3]);
+	if (ioctl(vcpu->vcpu_fd, KVM_SET_ONE_REG, &reg) < 0)
+		die_perror("KVM_SET_ONE_REG failed (x3)");
+
+	/* #<{(|  Secondary cores are stopped awaiting PSCI wakeup |)}># */
+	/* if (vcpu->cpu_id == 0) { */
+	/* 	#<{(|  x0 = physical address of the device tree blob |)}># */
+	/* 	data	= kvm->arch.dtb_guest_start; */
+	/* 	reg.id	= ARM64_CORE_REG(regs.regs[0]); */
+	/* 	if (ioctl(vcpu->vcpu_fd, KVM_SET_ONE_REG, &reg) < 0) */
+	/* 		die_perror("KVM_SET_ONE_REG failed (x0)"); */
+        /*  */
+	/* 	#<{(|  pc = start of kernel image |)}># */
+	/* 	data	= kvm->arch.kern_guest_start; */
+	/* 	reg.id	= ARM64_CORE_REG(regs.pc); */
+	/* 	if (ioctl(vcpu->vcpu_fd, KVM_SET_ONE_REG, &reg) < 0) */
+	/* 		die_perror("KVM_SET_ONE_REG failed (pc)"); */
+	/* } */
+}
+
+void kvm_reset_vcpu (struct kvm *kvm) {
+
+	struct kvm_vcpu_init init;
+	int ret;
+
+	/* init.target = 2; */
+	/* init.features[0] |= 1 << KVM_ARM_VCPU_POWER_OFF; */
+	/* init.features[0] |= 1 << KVM_ARM_VCPU_PSCI_0_2; */
+
+	ioctl(kvm->vm_fd, KVM_ARM_PREFERRED_TARGET, &init);
+
+	if (ret >= 0) {
+		ret = ioctl(kvm->vcpus->vcpu_fd, KVM_ARM_VCPU_INIT, &init);
+		reset_vcpu_aarch64(kvm->vcpus);
 	}
 }
 
 void *kvm_cpu_thread(void *data) {
 	struct kvm *kvm = (struct kvm *)data;
 	int ret = 0;
-	kvm_reset_vcpu(kvm->vcpus);
+	int i = 0;
+	kvm_reset_vcpu(kvm);
 
 	while (1) {
 		printf("KVM start run\n");
@@ -96,14 +141,19 @@ void *kvm_cpu_thread(void *data) {
 			break;
 		case KVM_EXIT_IO:
 			printf("KVM_EXIT_IO\n");
-			printf("out port: %d, data: %d\n", 
-				kvm->vcpus->kvm_run->io.port,  
+			printf("out port: %d, data: %d\n",
+			       kvm->vcpus->kvm_run->io.port,
 				*(int *)((char *)(kvm->vcpus->kvm_run) + kvm->vcpus->kvm_run->io.data_offset)
 				);
 			sleep(1);
 			break;
 		case KVM_EXIT_MMIO:
 			printf("KVM_EXIT_MMIO\n");
+			for (i = 0; i < kvm->vcpus->kvm_run->mmio.len; i++)
+				printf("%c", kvm->vcpus->kvm_run->mmio.data[i]);
+
+			printf("\n");
+			sleep(1);
 			break;
 		case KVM_EXIT_INTR:
 			printf("KVM_EXIT_INTR\n");
@@ -181,7 +231,7 @@ int kvm_create_vm(struct kvm *kvm, int ram_size) {
         perror("can not mmap ram");
         return -1;
     }
-    
+
     kvm->mem.slot = 0;
     kvm->mem.guest_phys_addr = 0;
     kvm->mem.memory_size = kvm->ram_size;
