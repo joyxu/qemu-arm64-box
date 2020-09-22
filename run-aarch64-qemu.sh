@@ -2,6 +2,7 @@
 
 KERNEL=./Image
 INITRD=./rootfs.cpio
+HOST_NET=false
 BIOS=false
 UBUNTU_BIOS_IMG="https://cloud-images.ubuntu.com/releases/16.04/release-20160516.1/ubuntu-16.04-server-cloudimg-amd64-uefi1.img"
 UBUNTU_IMG_PATH="./test/ubuntu-cloudimg-arm64-uefi1.img"
@@ -55,20 +56,35 @@ run_qemu()
 			-device virtio-net-device,netdev=unet,mac=$MAC_ADDRESS \
 			-nographic
 	else
-		sudo qemu-system-aarch64 \
-			-machine virt \
-			-cpu cortex-a57 \
-			-smp 2 \
-			-m 4096 \
-			-kernel $KERNEL \
-			-rtc base=localtime \
-			-initrd ${INITRD} \
-			-append 'console=ttyAMA0 rw earlycon=pl011,0x9000000 \
-			ip=192.168.2.3::192.168.2.2:255.255.255.0:: \
-			eth0:on:192.168.2.2:8.8.8.8' \
-			-netdev type=tap,id=unet,ifname=tap0,script=no \
-			-device virtio-net-device,netdev=unet,mac=$MAC_ADDRESS \
-			-nographic
+		if [ -e $HOST_NET ]; then
+			sudo qemu-system-aarch64 \
+				-machine virt \
+				-cpu cortex-a57 \
+				-smp 2 \
+				-m 4096 \
+				-kernel $KERNEL \
+				-rtc base=localtime \
+				-initrd ${INITRD} \
+				-append 'console=ttyAMA0 rw earlycon=pl011,0x9000000 \
+				ip=192.168.2.3::192.168.2.2:255.255.255.0:: \
+				eth0:on:192.168.2.2:8.8.8.8' \
+				-netdev type=tap,id=unet,ifname=tap0,script=no \
+				-device virtio-net-device,netdev=unet,mac=$MAC_ADDRESS \
+				-nographic
+		else
+			qemu-system-aarch64 \
+				-machine virt \
+				-cpu cortex-a57 \
+				-smp 2 \
+				-m 4096 \
+				-kernel $KERNEL \
+				-rtc base=localtime \
+				-initrd ${INITRD} \
+				-netdev user,id=user0,hostfwd=tcp::5000-:22 \
+				-device virtio-net-pci,netdev=user0 \
+				-append 'console=ttyAMA0 earlycon kmemleak=on' \
+				-nographic
+		fi
 	fi
 }
 
@@ -84,5 +100,5 @@ if [ $3 ]; then
 	INITRD=$3
 fi
 
-prepare_host_network
+#prepare_host_network
 run_qemu
