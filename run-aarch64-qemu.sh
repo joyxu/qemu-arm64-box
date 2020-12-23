@@ -1,7 +1,7 @@
 #!/bin/sh -e
 
 KERNEL=./Image
-INITRD=./rootfs.cpio
+INITRD=./rootfs.cpio.gz
 HOST_NET=false
 BIOS=false
 UBUNTU_BIOS_IMG="https://cloud-images.ubuntu.com/releases/16.04/release-20160516.1/ubuntu-16.04-server-cloudimg-amd64-uefi1.img"
@@ -72,17 +72,17 @@ run_qemu()
 				-device virtio-net-device,netdev=unet,mac=$MAC_ADDRESS \
 				-nographic
 		else
-			qemu-system-aarch64 \
+			~/develop/qemu/build/aarch64-softmmu/qemu-system-aarch64 -s \
 				-machine virt \
 				-cpu cortex-a57 \
 				-smp 2 \
 				-m 4096 \
 				-kernel $KERNEL \
-				-rtc base=localtime \
 				-initrd ${INITRD} \
+				-rtc base=localtime \
 				-netdev user,id=user0,hostfwd=tcp::5000-:22 \
 				-device virtio-net-pci,netdev=user0 \
-				-append 'console=ttyAMA0 earlycon kmemleak=on' \
+				-append 'nokaslr console=ttyAMA0 earlycon kmemleak=on' \
 				-nographic
 		fi
 	fi
