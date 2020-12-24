@@ -4,7 +4,6 @@ TARGET="mini_rootfs_ext4.img"
 ARM64_ROOT="ubuntu_minifs"
 UBUNTU_BASE_URL=http://cdimage.ubuntu.com/ubuntu-base/releases/20.04/release/ubuntu-base-20.04.1-base-arm64.tar.gz
 
-
 APP_LIST="bash blkid dcbtool dhclient dmidecode e2fsck ethtool fdisk file fio fsck 
 gdb ifconfig iozone ip tree iperf3 iperf ipmitool iw jq ledmon lldptool lsblk 
 lscpu lspci lsscsi ltrace mdadm mkfs netperf numactl ssh sshd scp parted python3 
@@ -129,7 +128,7 @@ mkdir -p openssh
 cd openssh
 tar xzf ../openssh.tar.gz
 find ./ -type f -name "*.so" -exec rm {} \;
-tar xzf ../sshd.arm64.tar.gz
+tar czf ../sshd.arm64.tar.gz ./
 EOF
 
 	cp ${ARM64_ROOT}/root/*.arm64.tar.gz source/applets/
