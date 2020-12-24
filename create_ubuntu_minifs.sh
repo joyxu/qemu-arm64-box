@@ -8,7 +8,7 @@ APP_LIST="bash blkid dcbtool dhclient dmidecode e2fsck ethtool fdisk file fio fs
 gdb ifconfig iozone ip tree iperf3 iperf ipmitool iw jq ledmon lldptool lsblk 
 lscpu lspci lsscsi ltrace mdadm mkfs netperf numactl ssh sshd scp parted python3 
 qperf rdma setcap setpci sfdisk sg strace stress taskset tc tcpdump vnstat 
-ldd htop"
+ldd htop ib_send_bw"
 
 PACK_LIST="perftest ibverbs-providers"
 
