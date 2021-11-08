@@ -3,12 +3,13 @@
 cd work
 
 rm -rf rootfs
+mkdir -p rootfs
 
 cd busybox
 cd $(ls -d *)
 
 # Copy all BusyBox generated stuff to the location of our "initramfs" folder.
-cp -R _install ../../rootfs
+cp -aRf _install/* ../../rootfs
 cd ../../rootfs
 
 # Remove "linuxrc" which is used when we boot in "RAM disk" mode. 
