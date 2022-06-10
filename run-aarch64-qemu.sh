@@ -72,17 +72,18 @@ run_qemu()
 				-device virtio-net-device,netdev=unet,mac=$MAC_ADDRESS \
 				-nographic
 		else
-			~/develop/qemu/build/aarch64-softmmu/qemu-system-aarch64 -s \
-				-machine virt \
-				-cpu cortex-a57 \
+			sudo ~/qemu/build/aarch64-softmmu/qemu-system-aarch64 -s \
+				-machine virt,kernel_irqchip=on,gic-version=3 \
+				-cpu host -enable-kvm \
 				-smp 2 \
 				-m 4096 \
 				-kernel $KERNEL \
-				-initrd ${INITRD} \
+				-device virtio-blk-device,drive=image1 \
+				-drive if=none,id=image1,file=mini_rootfs_ext4.img \
 				-rtc base=localtime \
 				-netdev user,id=user0,hostfwd=tcp::5000-:22 \
 				-device virtio-net-pci,netdev=user0 \
-				-append 'nokaslr console=ttyAMA0 earlycon kmemleak=on' \
+				-append 'nokaslr console=ttyAMA0 earlycon kmemleak=on root=/dev/vda mem=1G' \
 				-nographic
 		fi
 	fi
