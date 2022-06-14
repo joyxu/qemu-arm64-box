@@ -43,7 +43,9 @@ run_qemu()
 			-drive if=none,id=image1,file=$INITRD \
 			-netdev user,id=user0,hostfwd=tcp::5000-:22 \
 			-device virtio-net-device,netdev=user0 \
-			-append 'nokaslr console=ttyAMA0 earlycon kmemleak=on root=/dev/vda' \
+			-fsdev local,security_model=passthrough,id=fsdev0,path=./share \
+			-device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=hostshare \
+			-append 'nokaslr console=ttyAMA0 earlycon kmemleak=on root=/dev/vda rw' \
 			-nographic
 
 		return
