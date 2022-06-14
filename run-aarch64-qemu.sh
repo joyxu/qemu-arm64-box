@@ -1,9 +1,10 @@
 #!/bin/sh -e
 
 KERNEL=./Image
-INITRD=./rootfs.cpio.gz
+INITRD=./mini_rootfs_ext4.img
 HOST_NET=false
 BIOS=false
+WITH_KVM=false
 UBUNTU_BIOS_IMG="https://cloud-images.ubuntu.com/releases/16.04/release-20160516.1/ubuntu-16.04-server-cloudimg-amd64-uefi1.img"
 UBUNTU_IMG_PATH="./test/ubuntu-cloudimg-arm64-uefi1.img"
 #please change the tap0 ip address according your network
@@ -30,6 +31,24 @@ prepare_host_network()
 
 run_qemu()
 {
+
+	if [ "$WITH_KVM" = false ]; then
+
+		~/qemu/build/aarch64-softmmu/qemu-system-aarch64 \
+			-machine virt -cpu cortex-a57 \
+			-nographic -smp 2 -m 2048 \
+			-kernel $KERNEL \
+			-rtc base=localtime \
+			-device virtio-blk-device,drive=image1 \
+			-drive if=none,id=image1,file=$INITRD \
+			-netdev user,id=user0,hostfwd=tcp::5000-:22 \
+			-device virtio-net-device,netdev=user0 \
+			-append 'nokaslr console=ttyAMA0 earlycon kmemleak=on root=/dev/vda' \
+			-nographic
+
+		return
+	fi
+
 	# generate a random mac address for the QEMU nic
 	MAC_ADDRESS=$(printf 'DE:AD:BE:EF:%02X:%02X\n' $((`hexdump -n 1 -e '/2 \
 	"%u"' /dev/urandom`)) $((`hexdump -n 1 -e '/2 "%u"' /dev/urandom`)))
@@ -101,5 +120,6 @@ if [ $3 ]; then
 	INITRD=$3
 fi
 
+echo $WITH_KVM
 #prepare_host_network
 run_qemu

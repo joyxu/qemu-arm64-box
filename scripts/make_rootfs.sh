@@ -18,7 +18,6 @@ sudo cp /etc/apt/sources.list ./etc/apt/sources.list
 sudo cp /etc/resolv.conf ./etc/resolv.conf
 cd ..
 
-
 echo "Change root and install mini GUI..."
 sudo chroot test/ /bin/bash -x <<'EOF'
 echo "root" | passwd --stdin
