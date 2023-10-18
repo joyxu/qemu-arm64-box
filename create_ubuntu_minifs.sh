@@ -101,7 +101,7 @@ apt update
 APT_PKG="iproute2 ethtool isc-dhcp-client lldpad dmidecode fio gdb net-tools 
 iozone3 iperf3 libc-bin tree iperf ipmitool iw jq ledmon lldpad lsscsi ltrace 
 mdadm netperf numactl openssh-server parted qperf pciutils strace stress 
-tcpdump vnstat htop perftest ibverbs-providers"
+tcpdump vnstat htop perftest ibverbs-providers binutils"
 
 DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends tzdata
 apt install -y ${APT_PKG}
